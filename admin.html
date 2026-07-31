@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Admin Panel</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white font-sans p-4 select-none">
+
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-6 border-b border-slate-800 pb-3">
+            <h1 class="text-xl font-black text-amber-400">⚡ Master Admin Panel (@cryptolife15)</h1>
+            <a href="index.html" class="bg-slate-800 hover:bg-slate-700 text-xs text-cyan-400 px-3 py-1.5 rounded-lg border border-slate-700 font-bold">
+                ← Back to App
+            </a>
+        </div>
+
+        <!-- 1. USER LIST MANAGEMENT -->
+        <div class="bg-slate-900 p-4 rounded-xl mb-4 border border-slate-800 text-xs">
+            <p class="font-bold text-amber-400 mb-3 text-sm">👥 1. User List & Controls</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-[11px]">
+                    <thead>
+                        <tr class="text-slate-500 border-b border-slate-800">
+                            <th class="p-1.5">User ID & Name</th>
+                            <th class="p-1.5">Earning Balance</th>
+                            <th class="p-1.5">Ref Count</th>
+                            <th class="p-1.5">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminUserTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. PENDING TRANSACTIONS -->
+        <div class="bg-slate-900 p-4 rounded-xl mb-4 border border-slate-800 text-xs">
+            <p class="font-bold text-emerald-400 mb-3 text-sm">💳 2. Pending Deposit / Withdrawal Requests</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-[11px]">
+                    <thead>
+                        <tr class="text-slate-500 border-b border-slate-800">
+                            <th class="p-1.5">Type</th>
+                            <th class="p-1.5">User Info</th>
+                            <th class="p-1.5">Amount / TXID</th>
+                            <th class="p-1.5">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminTxTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. REFERRAL COMMISSION -->
+        <div class="bg-slate-900 p-4 rounded-xl mb-4 border border-slate-800 text-xs space-y-3">
+            <p class="font-bold text-indigo-400 text-sm">🎁 3. Set 3-Level Referral Commission (%)</p>
+            <div class="grid grid-cols-3 gap-2">
+                <input id="refL1Input" type="number" placeholder="Level 1 (%)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <input id="refL2Input" type="number" placeholder="Level 2 (%)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <input id="refL3Input" type="number" placeholder="Level 3 (%)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+            </div>
+            <button onclick="window.saveRefCommission()" class="bg-indigo-600 font-bold py-2 rounded w-full hover:bg-indigo-500 transition">Save Referral Commission</button>
+        </div>
+
+        <!-- 4. MULTI-CRYPTO WALLET MANAGER -->
+        <div class="bg-slate-900 p-4 rounded-xl mb-4 border border-slate-800 text-xs space-y-3">
+            <p class="font-bold text-cyan-400 text-sm">🪙 4. Manage Multi-Crypto Wallets</p>
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
+                <input id="newCryptoName" type="text" placeholder="Currency Name (e.g. USDT, BTC)" class="w-full bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <select id="newCryptoNetwork" class="w-full bg-slate-800 p-2 rounded border border-slate-700 text-white outline-none">
+                    <option value="TRC20">TRC20</option>
+                    <option value="BEP20">BEP20</option>
+                    <option value="ERC20">ERC20</option>
+                    <option value="TRON">TRON (TRX)</option>
+                    <option value="Bitcoin">Bitcoin (BTC)</option>
+                    <option value="Solana">Solana (SOL)</option>
+                </select>
+                <input id="newCryptoAddress" type="text" placeholder="Wallet Address" class="w-full bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <button onclick="window.addCryptoWallet()" class="w-full bg-cyan-600 font-bold py-2 rounded text-white shadow hover:bg-cyan-500">➕ Add / Update Wallet</button>
+            </div>
+            <div>
+                <p class="text-[10px] text-slate-400 mb-1 font-bold">Active Wallets List:</p>
+                <div id="adminWalletsListContainer" class="space-y-1.5 max-h-36 overflow-y-auto">
+                    <p class="text-slate-500 italic text-[10px]">No wallets added yet.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. WITHDRAWAL LIMIT SETTINGS -->
+        <div class="bg-slate-900 p-4 rounded-xl mb-4 border border-slate-800 text-xs space-y-3">
+            <p class="font-bold text-rose-400 text-sm">🏧 5. Secret Withdrawal Limits (Min & Max)</p>
+            <div class="grid grid-cols-2 gap-2">
+                <input id="minWithdrawInput" type="number" placeholder="Min Withdrawal ($)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <input id="maxWithdrawInput" type="number" placeholder="Max Withdrawal ($)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+            </div>
+            <button onclick="window.saveWithdrawalSettings()" class="bg-rose-600 font-bold py-2 rounded w-full hover:bg-rose-500 transition">Save Withdrawal Rules</button>
+        </div>
+
+        <!-- 6. INVEST PLAN MANAGER -->
+        <div class="bg-slate-900 p-4 rounded-xl mb-4 border border-slate-800 text-xs space-y-3">
+            <p class="font-bold text-amber-400 text-sm">📊 6. Add Investment Plan</p>
+            <div class="grid grid-cols-2 gap-2">
+                <input id="planName" type="text" placeholder="Plan Name" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <input id="planPrice" type="number" placeholder="Price ($)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <input id="planProfit" type="number" placeholder="Profit (%)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <input id="planDuration" type="number" placeholder="Duration (Days)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white">
+                <input id="planSpeed" type="number" placeholder="Speed (GH/s)" class="bg-slate-800 p-2 rounded border border-slate-700 text-white col-span-2">
+            </div>
+            <button onclick="window.createNewPlan()" class="bg-amber-600 font-bold py-2 rounded w-full hover:bg-amber-500 transition">Create Plan</button>
+        </div>
+    </div>
+
+    <!-- FIREBASE MODULE LOGIC FOR ADMIN -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, updateDoc, addDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqKGLnMTgbVqZRSre_JnpAzjtz4QVZE1k",
+            authDomain: "crypto-mining-3bd81.firebaseapp.com",
+            projectId: "crypto-mining-3bd81",
+            storageBucket: "crypto-mining-3bd81.firebasestorage.app",
+            messagingSenderId: "551379888227",
+            appId: "1:551379888227:web:90248e69e3bb774e79f056",
+            measurementId: "G-NV8SF3Q26F"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const sysRef = doc(db, "system", "global");
+
+        let globalWallets = {};
+
+        onSnapshot(sysRef, (snap) => {
+            if (snap.exists()) {
+                const sysData = snap.data();
+                globalWallets = sysData.wallets || {};
+                document.getElementById('minWithdrawInput').value = sysData.min_withdraw ?? 5;
+                document.getElementById('maxWithdrawInput').value = sysData.max_withdraw ?? 1000;
+                document.getElementById('refL1Input').value = sysData.ref_l1 ?? 10;
+                document.getElementById('refL2Input').value = sysData.ref_l2 ?? 5;
+                document.getElementById('refL3Input').value = sysData.ref_l3 ?? 2;
+                renderAdminWalletsList();
+            }
+        });
+
+        window.addCryptoWallet = async () => {
+            const name = document.getElementById('newCryptoName').value.trim().toUpperCase();
+            const network = document.getElementById('newCryptoNetwork').value;
+            const address = document.getElementById('newCryptoAddress').value.trim();
+
+            if (!name || !address) return alert("Fill in Currency Name and Address!");
+
+            const uniqueKey = `${name} (${network})`;
+            globalWallets[uniqueKey] = { name, network, address };
+
+            await updateDoc(sysRef, { wallets: globalWallets });
+            alert(`Wallet ${uniqueKey} Added!`);
+        };
+
+        function renderAdminWalletsList() {
+            const container = document.getElementById('adminWalletsListContainer');
+            if(!container) return;
+            container.innerHTML = '';
+
+            const keys = Object.keys(globalWallets);
+            if(keys.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 italic text-[10px]">No wallets added yet.</p>';
+                return;
+            }
+
+            keys.forEach(key => {
+                const w = globalWallets[key];
+                container.innerHTML += `
+                    <div class="bg-slate-900 p-2 rounded border border-slate-800 flex justify-between items-center text-[10px]">
+                        <div>
+                            <span class="font-bold text-amber-400">${w.name} (${w.network})</span>
+                            <p class="font-mono text-[9px] text-cyan-300 truncate max-w-[200px]">${w.address}</p>
+                        </div>
+                        <button onclick="window.deleteCryptoWallet('${key}')" class="bg-red-600/30 text-red-400 px-2 py-1 rounded font-bold">Delete</button>
+                    </div>
+                `;
+            });
+        }
+
+        window.deleteCryptoWallet = async (key) => {
+            if (confirm(`Remove wallet ${key}?`)) {
+                delete globalWallets[key];
+                await updateDoc(sysRef, { wallets: globalWallets });
+            }
+        };
+
+        window.saveRefCommission = async () => {
+            const l1 = parseFloat(document.getElementById('refL1Input').value) || 10;
+            const l2 = parseFloat(document.getElementById('refL2Input').value) || 5;
+            const l3 = parseFloat(document.getElementById('refL3Input').value) || 2;
+            await updateDoc(sysRef, { ref_l1: l1, ref_l2: l2, ref_l3: l3 });
+            alert("Referral Commission Saved!");
+        };
+
+        window.saveWithdrawalSettings = async () => {
+            const minW = parseFloat(document.getElementById('minWithdrawInput').value) || 5;
+            const maxW = parseFloat(document.getElementById('maxWithdrawInput').value) || 1000;
+            await updateDoc(sysRef, { min_withdraw: minW, max_withdraw: maxW });
+            alert("Withdrawal Rules Saved!");
+        };
+
+        window.createNewPlan = async () => {
+            const name = document.getElementById('planName').value.trim();
+            const price = parseFloat(document.getElementById('planPrice').value);
+            const profit = parseFloat(document.getElementById('planProfit').value);
+            const duration = parseFloat(document.getElementById('planDuration').value);
+            const speed = parseFloat(document.getElementById('planSpeed').value);
+
+            if (!name || isNaN(price) || isNaN(profit)) return alert("Fill all fields correctly!");
+
+            await addDoc(collection(db, "plans"), {
+                name, price, profit, duration, speed, created_at: new Date()
+            });
+            alert("Investment Plan Created!");
+        };
+
+        // Render Users & Pending Transactions
+        onSnapshot(collection(db, "users"), (snapshot) => {
+            const table = document.getElementById('adminUserTable');
+            if (!table) return;
+            table.innerHTML = '';
+            snapshot.forEach((docSnap) => {
+                const u = docSnap.data();
+                table.innerHTML += `
+                    <tr class="border-b border-slate-800">
+                        <td class="p-1 font-mono">${u.id} <br><span class="text-amber-300 font-bold">${u.first_name || 'User'}</span></td>
+                        <td class="p-1 text-emerald-400 font-mono font-bold">$${(u.balance_usd || 0).toFixed(2)}</td>
+                        <td class="p-1 font-bold text-cyan-400">0 Users</td>
+                        <td class="p-1">
+                            <button onclick="window.banUser('${u.id}', ${u.is_banned || false})" class="${u.is_banned ? 'bg-green-600' : 'bg-red-600'} px-2 py-0.5 rounded text-[9px] font-bold">
+                                ${u.is_banned ? 'Unban' : 'Ban'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+
+        onSnapshot(collection(db, "transactions"), (snapshot) => {
+            const txTable = document.getElementById('adminTxTable');
+            if(!txTable) return;
+            txTable.innerHTML = '';
+            snapshot.forEach((docSnap) => {
+                const tx = docSnap.data();
+                if(tx.status === "PENDING") {
+                    txTable.innerHTML += `
+                        <tr class="border-b border-slate-800">
+                            <td class="p-1 font-bold ${tx.type === 'DEPOSIT' ? 'text-green-400' : 'text-red-400'}">${tx.type}</td>
+                            <td class="p-1 font-mono">${tx.user_id}</td>
+                            <td class="p-1 text-slate-300">$${tx.amount}</td>
+                            <td class="p-1 flex gap-1">
+                                <button onclick="window.approveTx('${docSnap.id}', '${tx.user_id}', ${tx.amount}, '${tx.type}')" class="bg-emerald-600 px-1.5 py-0.5 rounded text-[8px] font-bold">Accept</button>
+                                <button onclick="window.rejectTx('${docSnap.id}')" class="bg-rose-600 px-1.5 py-0.5 rounded text-[8px] font-bold">Decline</button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+        });
+
+        window.approveTx = async (txDocId, userId, amount, type) => {
+            const uRef = doc(db, "users", String(userId));
+            const uSnap = await getDoc(uRef);
+            if (uSnap.exists()) {
+                let newBal = uSnap.data().balance_usd || 0;
+                newBal = type === 'DEPOSIT' ? newBal + amount : newBal - amount;
+                await updateDoc(uRef, { balance_usd: newBal });
+                await updateDoc(doc(db, "transactions", txDocId), { status: "APPROVED" });
+                alert("Transaction Accepted!");
+            }
+        };
+
+        window.rejectTx = async (txDocId) => {
+            await updateDoc(doc(db, "transactions", txDocId), { status: "REJECTED" });
+            alert("Transaction Rejected!");
+        };
+
+        window.banUser = async (id, status) => {
+            await updateDoc(doc(db, "users", String(id)), { is_banned: !status });
+        };
+    </script>
+</body>
+</html>
