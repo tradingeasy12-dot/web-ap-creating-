@@ -1,0 +1,5 @@
+# Ignore local config and secrets
+config.php
+.env
+uploads/
+node_modules/
