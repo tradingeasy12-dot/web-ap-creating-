@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST['action'])) {
         // Lightweight guard against pointing this at internal/local addresses.
         $isBlockedHost = $host && (
             strtolower($host) === 'localhost' ||
-            preg_match('/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.)/', $host)
+            preg_match('/^(127\.\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.)/', $host)
         );
 
         if (in_array($scheme, ['http', 'https'], true) && !$isBlockedHost) {
@@ -186,6 +186,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST['action'])) {
         $storagePath = 'uploads/videos/' . $filename;
     }
 
+    // START: handle download file / external URL
+    $downloadPath = $existing['download_path'] ?? null;
+    $downloadName = $existing['download_name'] ?? null;
+
+    // If admin uploaded a download file
+    if (!empty($_FILES['download_file']['name']) && $_FILES['download_file']['error'] === UPLOAD_ERR_OK) {
+        $dlDirRel = 'uploads/downloads/';
+        $dlDir = UPLOAD_DIR . 'downloads/';
+        if (!is_dir($dlDir)) { mkdir($dlDir, 0755, true); }
+
+        $tmp = $_FILES['download_file']['tmp_name'];
+        $origName = basename($_FILES['download_file']['name']);
+        // sanitize suggested filename part
+        $safeOrig = preg_replace('/[^A-Za-z0-9\-\_\.\ ]+/', '_', $origName);
+        $uniq = uniqid('dl_', true);
+        $safeName = $uniq . '-' . $safeOrig;
+        $target = $dlDir . $safeName;
+
+        if (move_uploaded_file($tmp, $target)) {
+            $downloadPath = $dlDirRel . $safeName; // store relative path
+            $downloadName = trim($_POST['download_name'] ?? '') ?: $origName;
+        } else {
+            flash('error', 'Could not save the download file — check uploads/downloads is writable.');
+            header('Location: ' . $redirectBack);
+            exit;
+        }
+    }
+    // Else, if external URL provided and valid, store URL
+    elseif (!empty($_POST['download_url'])) {
+        $url = trim($_POST['download_url']);
+        if (filter_var($url, FILTER_VALIDATE_URL)) {
+            $downloadPath = $url;
+            $downloadName = trim($_POST['download_name'] ?? '') ?: basename(parse_url($url, PHP_URL_PATH) ?: 'download');
+        } else {
+            flash('error', 'Invalid download URL provided.');
+            header('Location: ' . $redirectBack);
+            exit;
+        }
+    }
+    // END: handle download file / external URL
+
     $customSlugInput = trim($_POST['custom_slug'] ?? '');
 
     if ($editId) {
@@ -195,10 +236,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST['action'])) {
             : $existing['slug'];
 
         $stmt = db()->prepare(
-            'UPDATE videos SET title=?, slug=?, description=?, upload_type=?, embed_code=?, storage_path=?, thumbnail_path=?,
+            'UPDATE videos SET title=?, slug=?, description=?, upload_type=?, embed_code=?, storage_path=?, download_path=?, download_name=?, thumbnail_path=?,
                                 category_id=?, status=?, ads_enabled=?, preroll_ad_id=? WHERE id=?'
         );
-        $stmt->execute([$title, $slug, $description, $uploadType, $embedCode ?: null, $storagePath, $thumbnailPath,
+        $stmt->execute([$title, $slug, $description, $uploadType, $embedCode ?: null, $storagePath, $downloadPath, $downloadName, $thumbnailPath,
                          $categoryId, $status, $adsEnabled, $prerollAdId, $editId]);
         $videoId = $editId;
         db()->prepare('DELETE FROM video_tags WHERE video_id = ?')->execute([$videoId]);
@@ -206,11 +247,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST['action'])) {
         // New video: use the custom slug if one was typed, otherwise derive it from the title.
         $slug = unique_slug('videos', $customSlugInput !== '' ? $customSlugInput : $title);
         $stmt = db()->prepare(
-            'INSERT INTO videos (title, slug, description, upload_type, embed_code, storage_path, thumbnail_path,
+            'INSERT INTO videos (title, slug, description, upload_type, embed_code, storage_path, download_path, download_name, thumbnail_path,
                                   category_id, status, ads_enabled, preroll_ad_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$title, $slug, $description, $uploadType, $embedCode ?: null, $storagePath, $thumbnailPath,
+        $stmt->execute([$title, $slug, $description, $uploadType, $embedCode ?: null, $storagePath, $downloadPath, $downloadName, $thumbnailPath,
                         $categoryId, $status, $adsEnabled, $prerollAdId]);
         $videoId = (int) db()->lastInsertId();
     }
@@ -309,113 +350,4 @@ require_once __DIR__ . '/../includes/layout_header.php';
 
     <div id="embedBlock" class="field" style="display:<?= $vUploadType === 'embed' ? 'block' : 'none' ?>;">
       <label>Embed code</label>
-      <textarea id="embedCodeField" name="embed_code" placeholder="&lt;iframe src=&quot;https://player.example.com/embed/xxxx&quot;&gt;&lt;/iframe&gt;"><?= htmlspecialchars($vEmbedCode) ?></textarea>
-      <div class="hint">
-        Paste a <strong>direct video file link</strong> (e.g. ending in .mp4) and it plays through our own player, same as self-hosted videos.
-        Paste a third-party <strong>iframe/script embed</strong> and that source's own player controls show instead — a browser security rule means we can't put our skin around another site's player.
-      </div>
-    </div>
-  </div>
-
-  <?php if ($thumbCandidates): ?>
-    <button type="submit" name="action" value="regen_thumbs" class="btn btn-ghost btn-sm" style="margin-bottom:6px;">↻ Suggest different frames</button>
-  <?php elseif ($currentVideoPath && ffmpeg_available()): ?>
-    <button type="submit" name="action" value="regen_thumbs" class="btn btn-ghost btn-sm" style="margin-bottom:6px;">✨ Generate thumbnail suggestions from this video</button>
-  <?php elseif ($currentVideoPath): ?>
-    <div class="hint" style="margin-bottom:14px;">This server can't auto-generate thumbnails from video (ffmpeg not installed) — upload one manually below.</div>
-  <?php endif; ?>
-
-  <div class="card">
-    <div class="card-head"><div><p class="card-title">Thumbnail</p><p class="card-sub">Shown on the homepage and watch page.</p></div></div>
-
-    <?php if ($thumbCandidates): ?>
-      <label style="margin-bottom:10px;">Auto-generated suggestions — pick one</label>
-      <div class="thumb-pick-grid" id="thumbPickGrid">
-        <?php foreach ($thumbCandidates as $i => $path): ?>
-          <label class="thumb-pick-item">
-            <input type="radio" name="thumbnail_choice" value="<?= htmlspecialchars($path) ?>" <?= $i === 0 ? 'checked' : '' ?>>
-            <img src="/<?= htmlspecialchars($path) ?>" alt="Suggestion <?= $i + 1 ?>">
-          </label>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-
-    <?php if (!empty($existing['thumbnail_path']) && !$thumbCandidates): ?>
-      <div style="margin-bottom:12px;">
-        <img src="/<?= htmlspecialchars($existing['thumbnail_path']) ?>" alt="Current thumbnail"
-             style="max-width:220px;border-radius:8px;border:1px solid var(--border);display:block;">
-        <div class="hint">Current thumbnail — pick a suggestion above or upload a new image below to replace it.</div>
-      </div>
-    <?php endif; ?>
-
-    <div class="row">
-      <div class="field">
-        <label>Or upload your own image</label>
-        <input type="file" name="thumbnail_file" accept=".jpg,.jpeg,.png,.webp">
-        <div class="hint">JPG, PNG, or WebP. Recommended 1280×720 (16:9).</div>
-      </div>
-      <div class="field">
-        <label>Or paste an image link</label>
-        <input type="text" name="thumbnail_url" class="mono" placeholder="https://example.com/image.jpg" value="<?= htmlspecialchars($pendingFields['thumbnail_url'] ?? '') ?>">
-        <div class="hint">We'll download and save a copy — so it still works if that link goes down later.</div>
-      </div>
-    </div>
-    <div class="hint" style="margin-top:-8px;">If you fill in more than one of the options above, priority is: uploaded file → image link → suggestion picked above.</div>
-  </div>
-
-  <div class="card">
-    <div class="card-head"><div><p class="card-title">Details</p></div></div>
-    <div class="field"><label>Title</label><input type="text" name="title" required value="<?= htmlspecialchars($vTitle) ?>"></div>
-    <div class="field"><label>Description</label><textarea name="description"><?= htmlspecialchars($vDescription) ?></textarea></div>
-    <div class="field">
-      <label>Custom Slug / URL</label>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span class="hint" style="white-space:nowrap;">yoursite.com/watch/</span>
-        <input type="text" name="custom_slug" class="mono" placeholder="auto-generated-from-title"
-               value="<?= htmlspecialchars($vCustomSlug) ?>">
-      </div>
-      <div class="hint">Leave as-is to auto-generate from the title, or set your own URL slug. Use only lowercase letters, numbers, and hyphens.</div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label>Category</label>
-        <select name="category_id">
-          <option value="">— Select —</option>
-          <?php foreach ($categories as $c): ?>
-            <option value="<?= $c['id'] ?>" <?= $vCategoryId == $c['id'] ? 'selected' : '' ?>><?= htmlspecialchars($c['name']) ?></option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-      <div class="field"><label>Status</label>
-        <select name="status">
-          <option value="published" <?= $vStatus === 'published' ? 'selected' : '' ?>>Publish immediately</option>
-          <option value="draft" <?= $vStatus === 'draft' ? 'selected' : '' ?>>Save as draft</option>
-        </select>
-      </div>
-    </div>
-    <div class="field"><label>Tags (comma separated)</label><input type="text" name="tags" placeholder="tag-one, tag-two" value="<?= htmlspecialchars($vTags) ?>"></div>
-  </div>
-
-  <div class="card">
-    <div class="card-head"><div><p class="card-title">Ads for this video</p></div></div>
-    <div class="switch-row">
-      <div><div class="switch-label">Show ads on this video</div><div class="switch-desc">Uses global slot settings unless a specific ad is chosen below</div></div>
-      <label class="switch"><input type="checkbox" name="ads_enabled" <?= $vAdsEnabled ? 'checked' : '' ?>><span class="slider"></span></label>
-    </div>
-    <div class="field" style="margin-top:14px;">
-      <label>Pre-roll ad override</label>
-      <select name="preroll_ad_id">
-        <option value="">Use global default</option>
-        <?php foreach ($adLibrary as $ad): ?>
-          <option value="<?= $ad['id'] ?>" <?= $vPrerollAdId == $ad['id'] ? 'selected' : '' ?>><?= htmlspecialchars($ad['name']) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-  </div>
-
-  <div class="actions-row">
-    <button type="submit" class="btn btn-primary"><?= $existing ? 'Save changes' : 'Save video' ?></button>
-  </div>
-</form>
-
-<?php require_once __DIR__ . '/../includes/layout_header.php'; ?>
+      <textarea id="embedCodeField" name="embed_code" placeholder="&lt;iframe src=&quot;https://player.example.com/embed/xxxx&quot;&gt;&lt;/iframe&gt;"><?= htmlspecialchars($vEmbedCode) ?></texta[...]
